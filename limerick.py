@@ -13,6 +13,8 @@ import gzip
 import tempfile
 import shutil
 import atexit
+import itertools
+import string
 
 # Use word_tokenize to split raw text into words
 from string import punctuation
@@ -135,8 +137,60 @@ class LimerickDetector:
 
 
         """
-        # TODO: provide an implementation!
-        return False
+        
+        lines = text.strip().split('\n')
+        # There must be 5 lines in a limerick AABBA
+        if len(lines) != 5:
+            return False
+
+        # contains number of syllables for corresponding line index
+        num_sylls = []
+        
+        # contains the last word of each line
+        last_word = []
+
+        for line in lines:
+            syllables = 0
+            line_words = line.strip().split(" ")
+            for line_word in line_words:
+                syllables += self.num_syllables(line_word)
+            # No line can have fewer than 4 syllables
+            if num_sylls < 4:
+                return False
+            num_sylls.append(syllables)
+            last_word.append(line_words[-1].translate(None, string.punctuation))
+
+        A_lines_last_word = [last_word[0],last_word[1],last_word[4]]
+        B_lines_last_word = [last_word[2],last_word[3]]
+        
+        A_syllables = [num_sylls[0],num_sylls[1],num_sylls[4]]
+        B_syllables = [num_sylls[2],num_sylls[3]]
+
+        # make sure A lines rhyme with each other
+        if any(not self.rhymes(x.lower(),y.lower()) for x,y in itertools.combinations(A_lines_last_word,2)):
+            return False
+
+        # make sure B lines rhyme with each other
+        if not self.rhymes(B_lines_last_word[0].lower(),B_lines_last_word[1].lower()):
+            return False
+        
+        # make sure A lines don't rhyme with B lines
+        if any(self.rhymes(x.lower(),y.lower()) for x,y in itertools.product(A_lines_last_word,B_lines_last_word)):
+            return False
+        
+        # No two A lines should differ in their number of syllables by more than two
+        if any(abs(x-y) > 2 for x,y in itertools.combinations(A_syllables,2)):
+            return False
+        
+        # The B lines should differ in their number of syllables by no more than two
+        if abs(B_syllables[0]-B_syllables[1]) > 2:
+            return False
+        
+        # Each of the B lines should have fewer syllables than each of the A lines
+        if any(x-y <= 0 for x,y in itertools.product(A_syllables,B_syllables)):
+            return False
+        
+        return True
 
 
 # The code below should not need to be modified
@@ -163,7 +217,11 @@ def main():
   outfile.write("{}\n-----------\n{}\n".format(lines.strip(), ld.is_limerick(lines)))
 
 if __name__ == '__main__':
-    # print "hello"
-    # ld = LimerickDetector()
-    # print ld.rhymes("dog", "bog")
+#     ld = LimerickDetector()
+#     e = """An exceedingly fat friend of mine,
+# When asked at what hour he'd dine,
+# Replied, "At eleven,     
+# At three, five, and seven,
+# And eight and a quarter past nine"""
+#     print ld.is_limerick(e)
     main()
