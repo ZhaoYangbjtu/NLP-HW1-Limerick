@@ -80,6 +80,9 @@ class LimerickDetector:
                 elif this_num_syllables < shortest_syllables:
                     shortest_syllables = this_num_syllables
 
+            if shortest_syllables == 0:
+                return 1
+
             return shortest_syllables
 
     def rhymes(self, a, b):
@@ -105,7 +108,11 @@ class LimerickDetector:
             longer_pronuns = self._pronunciations[longer]
 
             for s_pronun in shorter_pronuns:
-                shorter_sounds = s_pronun[[1 if s[-1].isdigit() else 0 for s in s_pronun].index(1):]
+                try:
+                    shorter_sounds = s_pronun[[1 if s[-1].isdigit() else 0 for s in s_pronun].index(1):]
+                except ValueError:
+                    # If a word's pronounciation doesn't have any vowels, it rhymes with everything
+                    return True
                 last_n = 0-len(shorter_sounds)
                 for l_pronun in longer_pronuns:
                     longer_sounds = l_pronun[[1 if s[-1].isdigit() else 0 for s in l_pronun].index(1):]
@@ -115,6 +122,7 @@ class LimerickDetector:
 
 
         return False
+
 
     def is_limerick(self, text):
         """
@@ -137,7 +145,7 @@ class LimerickDetector:
 
 
         """
-        
+        punctuation_to_avoid = [s for s in punctuation]
         lines = text.strip().split('\n')
         # There must be 5 lines in a limerick AABBA
         if len(lines) != 5:
@@ -151,11 +159,13 @@ class LimerickDetector:
 
         for line in lines:
             syllables = 0
-            line_words = line.strip().split(" ")
+            # line_words = line.strip().split(" ")
+            line_words = word_tokenize(line.strip())
+            line_words = [w for w in line_words if w not in punctuation_to_avoid]
             for line_word in line_words:
                 syllables += self.num_syllables(line_word)
             # No line can have fewer than 4 syllables
-            if num_sylls < 4:
+            if syllables < 4:
                 return False
             num_sylls.append(syllables)
             last_word.append(line_words[-1].translate(None, string.punctuation))
@@ -193,6 +203,37 @@ class LimerickDetector:
         return True
 
 
+    def apostrophe_tokenize(self, line):
+        return re.findall(r"[\w']+|[!#$%&\"()*+,-./:;<=>?@[\]^_`{|}~]", line)
+
+
+    def guess_syllables(word):
+        vowels = ['a','e','i','o','u']
+        word = word.lower()
+        
+        # count the number of vowels in the word
+        count = 0
+        for w in word:
+            if w in vowels:
+                count += 1
+        # subtract silent vowels
+        # any words that end with 'e' or consectutive vowels
+        if word[-1] == 'e':
+            count -= 1
+        previous = False
+        for w in word:
+            if w in vowels:
+                if previous:
+                    count -= 1
+                else:
+                    previous = True
+            else:
+                previous = False
+            
+            
+        return count
+
+
 # The code below should not need to be modified
 def main():
   parser = argparse.ArgumentParser(description="limerick detector. Given a file containing a poem, indicate whether that poem is a limerick or not",
@@ -217,7 +258,8 @@ def main():
   outfile.write("{}\n-----------\n{}\n".format(lines.strip(), ld.is_limerick(lines)))
 
 if __name__ == '__main__':
-#     ld = LimerickDetector()
+    # ld = LimerickDetector()
+    # print ld.apostrophe_tokenize("he can't work!sdfdsf ")
 #     e = """An exceedingly fat friend of mine,
 # When asked at what hour he'd dine,
 # Replied, "At eleven,     
